@@ -224,6 +224,8 @@ class TaskCheck extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     return Semantics(
+      // Own node, so the row's tap target and its checkbox stay separate.
+      container: true,
       label: semanticLabel,
       button: true,
       checked: value,
