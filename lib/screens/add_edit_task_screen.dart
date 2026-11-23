@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:table_calendar/table_calendar.dart';
+import '../app_scope.dart';
 import '../models/task_model.dart';
-import '../services/firestore_service.dart';
+import '../theme/app_theme.dart';
+import '../utils/dates.dart';
+import '../widgets/common.dart';
+import '../widgets/custom_button.dart';
 
 class AddEditTaskScreen extends StatefulWidget {
   final String userId;
   final Task? task;
+  final DateTime? initialDate;
 
-  const AddEditTaskScreen({Key? key, required this.userId, this.task})
-    : super(key: key);
+  const AddEditTaskScreen({
+    super.key,
+    required this.userId,
+    this.task,
+    this.initialDate,
+  });
 
   @override
-  _AddEditTaskScreenState createState() => _AddEditTaskScreenState();
+  State<AddEditTaskScreen> createState() => _AddEditTaskScreenState();
 }
 
 class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
@@ -22,9 +29,10 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   late TextEditingController _descriptionController;
   DateTime? _selectedDate;
   int _selectedPriority = 0;
+  late String _category;
   bool _isLoading = false;
 
-  final Color _primaryColor = const Color(0xFF6200EE);
+  bool get _isEdit => widget.task != null;
 
   @override
   void initState() {
@@ -33,368 +41,213 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     _descriptionController = TextEditingController(
       text: widget.task?.description ?? '',
     );
-    _selectedDate = widget.task?.taskTime;
-    _selectedPriority = widget.task?.priority ?? 0;
-  }
-
-  Future<void> _saveTask() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      final firestoreService = FirestoreService();
-
-      final task = Task(
-        id: widget.task?.id,
-        title: _titleController.text,
-        description: _descriptionController.text,
-        taskTime: _selectedDate,
-        priority: _selectedPriority,
-        isCompleted: widget.task?.isCompleted ?? false,
-        createdAt: widget.task?.createdAt ?? Timestamp.now(),
-      );
-
-      await firestoreService.setTask(widget.userId, task);
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    }
-  }
-
-  void _showCalendarDialog() {
-    DateTime tempFocusedDay = _selectedDate ?? DateTime.now();
-    DateTime? tempSelectedDay = _selectedDate;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              titlePadding: const EdgeInsets.symmetric(vertical: 20),
-              title: Column(
-                children: [
-                  Text(
-                    DateFormat.yMMMM().format(tempFocusedDay).toUpperCase(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Divider(color: Colors.black26, height: 1),
-                ],
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: TableCalendar(
-                  focusedDay: tempFocusedDay,
-                  firstDay: DateTime(2000),
-                  lastDay: DateTime(2100),
-                  selectedDayPredicate:
-                      (day) => isSameDay(tempSelectedDay, day),
-                  onDaySelected: (selectedDay, focusedDay) {
-                    setDialogState(() {
-                      tempSelectedDay = selectedDay;
-                      tempFocusedDay = focusedDay;
-                    });
-                  },
-                  onPageChanged: (focusedDay) {
-                    setDialogState(() {
-                      tempFocusedDay = focusedDay;
-                    });
-                  },
-                  headerVisible: false,
-                  calendarStyle: CalendarStyle(
-                    defaultTextStyle: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    weekendTextStyle: const TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    outsideTextStyle: const TextStyle(color: Colors.grey),
-                    selectedDecoration: BoxDecoration(
-                      color: _primaryColor,
-                      shape: BoxShape.rectangle,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    todayDecoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      shape: BoxShape.rectangle,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekdayStyle: TextStyle(fontWeight: FontWeight.bold),
-                    weekendStyle: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              actionsAlignment: MainAxisAlignment.center,
-              actionsPadding: const EdgeInsets.only(
-                bottom: 20,
-                left: 20,
-                right: 20,
-              ),
-              actions: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(color: _primaryColor, fontSize: 16),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() => _selectedDate = tempSelectedDay);
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _primaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showPriorityDialog() {
-    int tempSelectedPriority = _selectedPriority;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Column(
-                children: [
-                  Center(child: Text('Task Priority')),
-                  Divider(color: Colors.black26, height: 20, thickness: 1),
-                ],
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: 10,
-                  itemBuilder: (context, index) {
-                    final priority = index + 1;
-                    final isSelected = tempSelectedPriority == priority;
-                    return GestureDetector(
-                      onTap: () {
-                        setDialogState(() {
-                          tempSelectedPriority = priority;
-                        });
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color:
-                              isSelected ? _primaryColor : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                isSelected
-                                    ? _primaryColor
-                                    : Colors.grey.shade300,
-                            width: 2,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.flag_outlined,
-                              color: isSelected ? Colors.white : _primaryColor,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '$priority',
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              actionsAlignment: MainAxisAlignment.center,
-              actionsPadding: const EdgeInsets.only(
-                bottom: 20,
-                left: 20,
-                right: 20,
-              ),
-              actions: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(color: _primaryColor, fontSize: 16),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() => _selectedPriority = tempSelectedPriority);
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _primaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+    _selectedDate =
+        widget.task?.taskTime ??
+        widget.initialDate ??
+        (_isEdit ? null : dayOnly(DateTime.now()));
+    _selectedPriority = widget.task?.priorityLevel.value ?? 0;
+    _category = widget.task?.category ?? TaskCategories.orders;
   }
 
   @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveTask() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    final existing = widget.task;
+    final task = Task(
+      id: existing?.id,
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      taskTime: _selectedDate,
+      priority: _selectedPriority,
+      category: _category,
+      isCompleted: existing?.isCompleted ?? false,
+      completedAt: existing?.completedAt,
+      createdAt: existing?.createdAt ?? DateTime.now(),
+    );
+
+    try {
+      await AppScope.taskRepository.setTask(widget.userId, task);
+      if (!mounted) return;
+      Navigator.pop(context);
+      showAppSnack(context, _isEdit ? 'Changes saved' : 'Task added');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      showAppSnack(context, 'Could not save the task', error: true);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: 'Due date',
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(top: AppSpace.xl, bottom: AppSpace.md),
+    child: Text(text, style: context.text.titleSmall),
+  );
+
+  @override
   Widget build(BuildContext context) {
+    final p = context.palette;
+    final today = dayOnly(DateTime.now());
+    final quick = <String, DateTime>{
+      'Today': today,
+      'Tomorrow': today.add(const Duration(days: 1)),
+      'Next week': today.add(const Duration(days: 7)),
+    };
+    final isQuick =
+        _selectedDate != null &&
+        quick.values.any((d) => d == dayOnly(_selectedDate!));
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.task == null ? 'Add Task' : 'Edit Task'),
+        title: Text(_isEdit ? 'Edit task' : 'New task'),
         leading: IconButton(
+          tooltip: 'Close',
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Form(
-                key: _formKey,
-                child: Stack(
-                  children: [
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextFormField(
-                            controller: _titleController,
-                            decoration: const InputDecoration(
-                              labelText: 'Title',
-                              hintText: 'e.g., Do math homework',
-                            ),
-                            validator:
-                                (value) =>
-                                    value!.isEmpty
-                                        ? 'Please enter a title'
-                                        : null,
-                          ),
-                          const SizedBox(height: 24),
-                          TextFormField(
-                            controller: _descriptionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Description',
-                              hintText: 'e.g., Chapter 2 to 5',
-                            ),
-                            maxLines: 3,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              spreadRadius: 1,
-                              blurRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.calendar_today_outlined,
-                                    color: _primaryColor,
-                                  ),
-                                  onPressed: _showCalendarDialog,
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.flag_outlined,
-                                    color: _primaryColor,
-                                  ),
-                                  onPressed: _showPriorityDialog,
-                                ),
-                              ],
-                            ),
-                            FloatingActionButton(
-                              onPressed: _saveTask,
-                              backgroundColor: _primaryColor,
-                              child: const Icon(
-                                Icons.send,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.xl,
+            AppSpace.sm,
+            AppSpace.xl,
+            AppSpace.xl,
+          ),
+          children: [
+            Text('Title', style: context.text.titleSmall),
+            const SizedBox(height: AppSpace.sm),
+            TextFormField(
+              controller: _titleController,
+              autofocus: !_isEdit,
+              textCapitalization: TextCapitalization.sentences,
+              style: context.text.titleMedium,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Send invoice to a customer',
               ),
+              validator:
+                  (value) =>
+                      (value == null || value.trim().isEmpty)
+                          ? 'Please enter a title'
+                          : null,
+            ),
+            const SizedBox(height: AppSpace.lg),
+            Text('Notes', style: context.text.titleSmall),
+            const SizedBox(height: AppSpace.sm),
+            TextFormField(
+              controller: _descriptionController,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText: 'Details, amounts, who to contact…',
+              ),
+              minLines: 3,
+              maxLines: 6,
+            ),
+            _label('Category'),
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (final c in TaskCategories.all)
+                  ChoiceChip(
+                    avatar: Icon(
+                      categoryIcon(c),
+                      size: 16,
+                      color: p.category(c),
+                    ),
+                    label: Text(c),
+                    selected: _category == c,
+                    onSelected: (_) => setState(() => _category = c),
+                  ),
+              ],
+            ),
+            _label('Priority'),
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (final pr in TaskPriority.values)
+                  ChoiceChip(
+                    avatar: Icon(
+                      pr == TaskPriority.none ? Icons.outlined_flag : Icons.flag,
+                      size: 16,
+                      color: p.priority(pr),
+                    ),
+                    label: Text(pr == TaskPriority.none ? 'None' : pr.label),
+                    selected: _selectedPriority == pr.value,
+                    onSelected:
+                        (_) => setState(() => _selectedPriority = pr.value),
+                  ),
+              ],
+            ),
+            _label('Due date'),
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (final e in quick.entries)
+                  ChoiceChip(
+                    label: Text(e.key),
+                    selected:
+                        _selectedDate != null &&
+                        dayOnly(_selectedDate!) == e.value,
+                    onSelected:
+                        (_) => setState(() => _selectedDate = e.value),
+                  ),
+                ChoiceChip(
+                  avatar: const Icon(Icons.calendar_today_outlined, size: 15),
+                  label: Text(
+                    _selectedDate != null && !isQuick
+                        ? DateFormat('EEE, MMM d').format(_selectedDate!)
+                        : 'Pick a date',
+                  ),
+                  selected: _selectedDate != null && !isQuick,
+                  onSelected: (_) => _pickDate(),
+                ),
+                ChoiceChip(
+                  label: const Text('No date'),
+                  selected: _selectedDate == null,
+                  onSelected: (_) => setState(() => _selectedDate = null),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.xl,
+            AppSpace.sm,
+            AppSpace.xl,
+            AppSpace.lg + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: CustomButton(
+            text: _isEdit ? 'Save changes' : 'Add task',
+            loading: _isLoading,
+            onPressed: _saveTask,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,38 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tasky: a task planner for small businesses. Orders, suppliers, marketing and finance tasks in one place.">
+  <meta name="theme-color" content="#6200EE">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="tasky_app">
+  <meta name="apple-mobile-web-app-title" content="Tasky">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>tasky_app</title>
+  <title>Tasky</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Shown while the Flutter engine loads; matches the in-app splash. */
+    html, body { height: 100%; margin: 0; }
+    body { background: linear-gradient(135deg, #6200EE, #4A148C); }
+    #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    #boot img { width: 104px; height: 104px; border-radius: 27px; box-shadow: 0 14px 32px rgba(0,0,0,.25); }
+  </style>
 </head>
 <body>
+  <div id="boot"><img src="icons/Icon-192.png" alt="Tasky"></div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('boot');
+      if (el) el.remove();
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.body.style.background = dark ? '#131118' : '#F7F6FB';
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

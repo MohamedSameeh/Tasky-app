@@ -1,23 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tasky_app/screens/tasky_app_homescreen.dart';
+import '../app_scope.dart';
+import '../data/auth_repository.dart';
 import 'login_screen.dart';
 
-class AuthGate extends StatelessWidget {
-  const AuthGate({Key? key}) : super(key: key);
+/// Shows the app when someone is signed in, the sign-in screen otherwise.
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  late final Stream<AppUser?> _stream = AppScope.auth.authStateChanges;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return StreamBuilder<AppUser?>(
+      stream: _stream,
       builder: (context, snapshot) {
+        final Widget child;
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          child = const Scaffold(
+            key: ValueKey('waiting'),
+            body: Center(child: CircularProgressIndicator()),
+          );
+        } else if (snapshot.data != null) {
+          AppScope.tasks.bind(snapshot.data!.uid);
+          child = HomeScreen(key: const ValueKey('home'), user: snapshot.data!);
+        } else {
+          AppScope.tasks.unbind();
+          child = const LoginScreen(key: ValueKey('login'));
         }
-        if (snapshot.hasData) {
-          return const HomeScreen();
-        }
-        return const LoginScreen();
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          child: child,
+        );
       },
     );
   }

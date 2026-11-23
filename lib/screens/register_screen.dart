@@ -1,94 +1,122 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../services/auth_service.dart';
+import '../app_scope.dart';
+import '../theme/app_theme.dart';
+import '../widgets/common.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
-  _RegisterScreenState createState() => _RegisterScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
-  final AuthService _authService = AuthService(FirebaseAuth.instance);
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
     if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Passwords do not match"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showAppSnack(context, 'Passwords do not match', error: true);
       return;
     }
 
     setState(() => _isLoading = true);
-    final result = await _authService.signUp(
+    final result = await AppScope.auth.signUp(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
     );
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result == null) {
-      if (mounted) Navigator.pop(context);
+      Navigator.pop(context);
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result), backgroundColor: Colors.red),
-        );
-      }
+      showAppSnack(context, result, error: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      appBar: AppBar(),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Register',
-                style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 48),
-              CustomTextField(
-                controller: _emailController,
-                labelText: 'Username',
-                hintText: 'enter username...',
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 24),
-              CustomTextField(
-                controller: _passwordController,
-                labelText: 'Password',
-                hintText: 'enter password...',
-                obscureText: true,
-              ),
-              const SizedBox(height: 24),
-              CustomTextField(
-                controller: _confirmPasswordController,
-                labelText: 'Confirm Password',
-                hintText: 'confirm password...',
-                obscureText: true,
-              ),
-              const SizedBox(height: 48),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : CustomButton(text: 'Register', onPressed: _register),
-            ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.xl,
+            AppSpace.sm,
+            AppSpace.xl,
+            AppSpace.xl,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Create your account', style: context.text.headlineLarge),
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  'Your tasks sync to your account and follow you across devices.',
+                  style: context.text.bodyLarge?.copyWith(
+                    color: context.palette.muted,
+                  ),
+                ),
+                const SizedBox(height: AppSpace.xxl),
+                CustomTextField(
+                  controller: _emailController,
+                  labelText: 'Email',
+                  hintText: 'you@business.com',
+                  icon: Icons.mail_outline,
+                  keyboardType: TextInputType.emailAddress,
+                  validator:
+                      (v) =>
+                          (v == null || !v.contains('@'))
+                              ? 'Enter a valid email'
+                              : null,
+                ),
+                const SizedBox(height: AppSpace.lg + 4),
+                CustomTextField(
+                  controller: _passwordController,
+                  labelText: 'Password',
+                  hintText: 'At least 6 characters',
+                  icon: Icons.lock_outline,
+                  obscureText: true,
+                  validator:
+                      (v) =>
+                          (v == null || v.length < 6)
+                              ? 'Use at least 6 characters'
+                              : null,
+                ),
+                const SizedBox(height: AppSpace.lg + 4),
+                CustomTextField(
+                  controller: _confirmPasswordController,
+                  labelText: 'Confirm password',
+                  hintText: 'Repeat your password',
+                  icon: Icons.lock_outline,
+                  obscureText: true,
+                ),
+                const SizedBox(height: AppSpace.xxl),
+                CustomButton(
+                  text: 'Create account',
+                  loading: _isLoading,
+                  onPressed: _register,
+                ),
+              ],
+            ),
           ),
         ),
       ),

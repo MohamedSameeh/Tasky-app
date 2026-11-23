@@ -1,48 +1,125 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
+import '../widgets/common.dart';
 import 'onboarding_screen.dart';
 import 'auth_gate.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..forward();
+
   @override
   void initState() {
     super.initState();
     _checkOnboardingStatus();
   }
 
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
   Future<void> _checkOnboardingStatus() async {
-    await Future.delayed(const Duration(seconds: 2));
+    // Hold the splash briefly and let the fonts arrive so the first real
+    // screen does not flash fallback type.
+    await Future.wait([
+      Future<void>.delayed(const Duration(milliseconds: 1600)),
+      GoogleFonts.pendingFonts().timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => const [],
+      ),
+    ]);
 
     if (!mounted) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final bool onboardingComplete =
-        prefs.getBool('onboardingComplete') ?? false;
+    bool onboardingComplete = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      onboardingComplete = prefs.getBool('onboardingComplete') ?? false;
+    } catch (_) {}
 
-    if (onboardingComplete) {
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const AuthGate()));
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-      );
-    }
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 450),
+        pageBuilder:
+            (_, __, ___) =>
+                onboardingComplete
+                    ? const AuthGate()
+                    : const OnboardingScreen(),
+        transitionsBuilder:
+            (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final fade = CurvedAnimation(parent: _intro, curve: Curves.easeOut);
     return Scaffold(
-      backgroundColor: const Color(0xFF4A148C),
-      body: Center(
-        child: Image.asset('assets/images/tasky_logo.png', width: 200),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.brand, AppColors.brandDeep],
+          ),
+        ),
+        child: Center(
+          child: FadeTransition(
+            opacity: fade,
+            child: ScaleTransition(
+              scale: Tween(begin: 0.9, end: 1.0).animate(
+                CurvedAnimation(parent: _intro, curve: Curves.easeOutBack),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x40000000),
+                          blurRadius: 32,
+                          offset: Offset(0, 14),
+                        ),
+                      ],
+                    ),
+                    child: const AppLogoMark(size: 104),
+                  ),
+                  const SizedBox(height: AppSpace.xl),
+                  const AppWordmark(
+                    fontSize: 40,
+                    color: Colors.white,
+                    accent: Color(0xFFFFD75E),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  Text(
+                    'Plan the work. Run the day.',
+                    style: context.text.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

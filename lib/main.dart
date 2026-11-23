@@ -1,39 +1,37 @@
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'app_scope.dart';
 import 'screens/splash_screen.dart';
-import 'firebase_options.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Firebase in the real build, in-memory demo data with --dart-define=DEMO=true.
+  await AppScope.init();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tasky',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF6A1B9A),
-        scaffoldBackgroundColor: Colors.white,
-        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          iconTheme: IconThemeData(color: Colors.black),
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppScope.theme,
+      builder: (context, mode, _) {
+        return MaterialApp(
+          title: 'Tasky',
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: mode,
+          // Let lists and pagers be dragged with a mouse or trackpad on web/desktop.
+          scrollBehavior: const MaterialScrollBehavior().copyWith(
+            dragDevices: PointerDeviceKind.values.toSet(),
           ),
-        ),
-      ),
-      home: const SplashScreen(),
-      debugShowCheckedModeBanner: false,
+          home: const SplashScreen(),
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }
